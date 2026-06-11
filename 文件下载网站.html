@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件下载网站</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 0 20px;
+            background: #f5f7fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .tip {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .admin-panel {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        input[type="password"], input[type="file"] {
+            padding: 8px 12px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .upload-btn {
+            background: #409eff;
+            color: white;
+        }
+        .del-btn {
+            background: #f56c6c;
+            color: white;
+            margin-left: 10px;
+        }
+        .file-list {
+            margin-top: 20px;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #fafafa;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border: 1px solid #eee;
+        }
+        .file-name {
+            font-weight: bold;
+            color: #333;
+        }
+        .file-size {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+        .download {
+            background: #409eff;
+            color: white;
+        }
+        .empty {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📁 文件下载网站</h1>
+        <p class="tip">所有人均可免费下载，管理员可上传管理</p>
+
+        <!-- 管理员上传区 -->
+        <div class="admin-panel">
+            <div class="section-title">🔐 管理员上传文件</div>
+            <input type="password" id="pwd" placeholder="输入管理密码">
+            <input type="file" id="fileInput" multiple>
+            <button class="upload-btn" onclick="uploadFile()">上传文件</button>
+        </div>
+
+        <!-- 公共下载区 -->
+        <div class="section-title">📥 所有可下载文件</div>
+        <div id="fileList" class="file-list"></div>
+    </div>
+
+<script>
+// ================= 配置 =================
+const ADMIN_PASSWORD = "123456";  // 你的管理密码（可修改）
+const FILE_STORAGE_KEY = "public-files";
+
+// 初始化加载文件列表
+loadFileList();
+
+// 上传文件（管理员）
+function uploadFile() {
+    const pwd = document.getElementById("pwd").value;
+    const fileInput = document.getElementById("fileInput");
+    
+    if (pwd !== ADMIN_PASSWORD) {
+        alert("密码错误！");
+        return;
+    }
+    if (!fileInput.files.length) {
+        alert("请选择文件");
+        return;
+    }
+
+    let files = JSON.parse(localStorage.getItem(FILE_STORAGE_KEY) || "[]");
+
+    for (let f of fileInput.files) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            files.push({
+                name: f.name,
+                size: f.size,
+                url: e.target.result,
+                id: Date.now() + Math.random()
+            });
+            localStorage.setItem(FILE_STORAGE_KEY, JSON.stringify(files));
+            loadFileList();
+        };
+        reader.readAsDataURL(f);
+    }
+    alert("上传成功！");
+    fileInput.value = "";
+}
+
+// 加载并显示文件列表
+function loadFileList() {
+    const list = document.getElementById("fileList");
+    const files = JSON.parse(localStorage.getItem(FILE_STORAGE_KEY) || "[]");
+
+    if (files.length === 0) {
+        list.innerHTML = `<div class="empty">暂无文件，等待管理员上传</div>`;
+        return;
+    }
+
+    list.innerHTML = "";
+    files.forEach(file => {
+        const item = document.createElement("div");
+        item.className = "file-item";
+        item.innerHTML = `
+            <div>
+                <div class="file-name">${file.name}</div>
+                <div class="file-size">${formatSize(file.size)}</div>
+            </div>
+            <div>
+                <button class="download" onclick="download('${file.id}')">下载</button>
+                <button class="del-btn" onclick="del('${file.id}')">删除</button>
+            </div>
+        `;
+        list.appendChild(item);
+    });
+}
+
+// 下载文件
+function download(fileId) {
+    const files = JSON.parse(localStorage.getItem(FILE_STORAGE_KEY));
+    const file = files.find(f => f.id == fileId);
+    const a = document.createElement("a");
+    a.href = file.url;
+    a.download = file.name;
+    a.click();
+}
+
+// 删除文件（需要密码）
+function del(fileId) {
+    const pwd = prompt("请输入管理密码：");
+    if (pwd !== ADMIN_PASSWORD) return alert("密码错误");
+    
+    let files = JSON.parse(localStorage.getItem(FILE_STORAGE_KEY));
+    files = files.filter(f => f.id != fileId);
+    localStorage.setItem(FILE_STORAGE_KEY, JSON.stringify(files));
+    loadFileList();
+}
+
+// 文件大小格式化
+function formatSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+}
+</script>
+</body>
+</html>
